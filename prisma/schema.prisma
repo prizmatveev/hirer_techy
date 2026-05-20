@@ -1,5 +1,11 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 model User {
   id           String        @id @default(cuid())
@@ -49,5 +55,16 @@ model AdminNotes {
   application   Application @relation(fields: [applicationId], references: [id])
 }
 
-enum Role { ADMIN RECRUITER CANDIDATE }
-enum ApplicationStatus { PENDING REVIEWING SHORTLISTED REJECTED HIRED }
+enum Role {
+  ADMIN
+  RECRUITER
+  CANDIDATE
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
