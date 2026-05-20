@@ -16,9 +16,9 @@ export default function Home() {
 
       <section className="container shell p-8 md:p-12 grid lg:grid-cols-2 gap-8 items-center">
         <div className="space-y-6">
-          <h1 className="text-5xl md:text-6xl leading-tight font-medium">Find Your Seat in the Rocketship</h1>
+          <h1 className="text-5xl md:text-6xl leading-tight font-medium">Work with Us</h1>
           <p className="text-zinc-600 text-lg max-w-xl">Find jobs that match your interests and abilities with a minimal, modern hiring experience.</p>
-          <button className="btn-primary">Get Started</button>
+          <button className="btn-primary" onClick={() => document.getElementById("jobs")?.scrollIntoView({ behavior: "smooth" })}>Get Started</button>
         </div>
         <div className="rounded-2xl border border-[var(--line)] bg-[#e5f2f4] min-h-[360px]" />
       </section>

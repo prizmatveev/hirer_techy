@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useState } from "react";
@@ -8,7 +9,6 @@ const links = [
   ["About", "#about"],
   ["Contact Us", "#contact"],
   ["Jobs", "#jobs"],
-  ["Login", "/admin/login"],
 ] as const;
 
 export function Navbar() {
@@ -17,8 +17,9 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 py-4">
       <nav className="container shell h-16 px-6 flex items-center justify-between">
-        <Link href="/" className="font-semibold text-lg tracking-tight">
-          HireTech
+        <Link href="/" className="font-semibold text-lg tracking-tight flex items-center gap-2">
+          <Image src="/localsm-logo.svg" alt="LocalSM logo" width={28} height={28} />
+          <span>LocalSM</span>
         </Link>
 
         <button className="md:hidden" onClick={() => setOpen(!open)}>
@@ -31,7 +32,6 @@ export function Navbar() {
               {name}
             </Link>
           ))}
-          <button className="rounded-xl border border-zinc-700/40 px-5 py-2 text-sm">Register Now</button>
         </div>
       </nav>
 
