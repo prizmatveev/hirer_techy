@@ -28,6 +28,11 @@ type AppRow = {
   user: { name: string; email: string };
   job: { title: string };
   notes: Note[];
+  location?: string | null;
+  yearsExperience?: string | null;
+  currentCompany?: string | null;
+  expectedSalary?: string | null;
+  coverLetter?: string | null;
 };
 
 const statusOptions = ["PENDING", "REVIEWING", "SHORTLISTED", "REJECTED", "HIRED"] as const;
@@ -236,6 +241,16 @@ export default function AdminDashboard() {
         <p>{selected.user.name} • {selected.user.email} • {selected.phone}</p>
         <p><a className="underline mr-2" href={selected.linkedin}>LinkedIn</a><a className="underline mr-2" href={selected.github}>GitHub</a>{selected.portfolio && <a className="underline" href={selected.portfolio}>Portfolio</a>}</p>
         <p><a className="underline" href={selected.resume}>Resume Preview/Download</a></p>
+        <div className="grid sm:grid-cols-2 gap-2 text-sm">
+          <p><span className="font-medium">Current Location:</span> {selected.location || "—"}</p>
+          <p><span className="font-medium">Years of Experience:</span> {selected.yearsExperience || "—"}</p>
+          <p><span className="font-medium">Current Company:</span> {selected.currentCompany || "—"}</p>
+          <p><span className="font-medium">Expected Salary:</span> {selected.expectedSalary || "—"}</p>
+        </div>
+        <div>
+          <h4 className="font-medium">Cover Letter</h4>
+          <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selected.coverLetter || "—"}</p>
+        </div>
         <div><h4 className="font-medium">Notes</h4>{selected.notes.map((n) => <div key={n.id}>• {n.note}</div>)}</div>
       </div>
     </div>}

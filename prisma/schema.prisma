@@ -33,19 +33,24 @@ model Job {
 }
 
 model Application {
-  id        String            @id @default(cuid())
-  userId    String
-  jobId     String
-  resume    String
-  linkedin  String
-  github    String
-  portfolio String?
-  phone     String
-  status    ApplicationStatus @default(PENDING)
-  createdAt DateTime          @default(now())
-  user      User              @relation(fields: [userId], references: [id])
-  job       Job               @relation(fields: [jobId], references: [id])
-  notes     AdminNotes[]
+  id             String            @id @default(cuid())
+  userId         String
+  jobId          String
+  resume         String
+  linkedin       String
+  github         String
+  portfolio      String?
+  phone          String
+  location       String?
+  yearsExperience String?
+  currentCompany String?
+  expectedSalary String?
+  coverLetter    String?
+  status         ApplicationStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  user           User              @relation(fields: [userId], references: [id])
+  job            Job               @relation(fields: [jobId], references: [id])
+  notes          AdminNotes[]
 }
 
 model AdminNotes {
