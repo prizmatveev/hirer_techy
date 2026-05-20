@@ -158,13 +158,6 @@ export default function AdminDashboard() {
   const currentSkillTokens = parseSkills(skillInput);
   const visibleSkillSuggestions = skillSuggestions.filter((s) => !currentSkillTokens.includes(s)).slice(0, 8);
 
-  const resolveResumeUrl = (resume: string) => {
-    if (!resume) return "#";
-    if (resume.startsWith("http://") || resume.startsWith("https://") || resume.startsWith("/")) return resume;
-    if (resume.includes("/")) return `/${resume}`;
-    return `/uploads/resumes/${resume}`;
-  };
-
 
   return <main className="container py-10 space-y-6">
     <div className="flex items-center justify-between gap-3">
@@ -226,7 +219,7 @@ export default function AdminDashboard() {
       <table className="w-full text-sm">
         <thead><tr className="border-b"><th className="text-left p-2">Candidate</th><th>Role</th><th>Status</th><th>Resume</th><th>Actions</th></tr></thead>
         <tbody>
-          {filteredApplications.map((a) => <tr key={a.id} className="border-b align-top"><td className="p-2">{a.user.name}<div className="text-zinc-500">{a.user.email}<br />{a.phone}</div></td><td>{a.job.title}</td><td>{a.status}</td><td><a href={resolveResumeUrl(a.resume)} className="underline" target="_blank" rel="noopener noreferrer">Download</a></td><td className="p-2"><div className="flex gap-2 flex-wrap">
+          {filteredApplications.map((a) => <tr key={a.id} className="border-b align-top"><td className="p-2">{a.user.name}<div className="text-zinc-500">{a.user.email}<br />{a.phone}</div></td><td>{a.job.title}</td><td>{a.status}</td><td><a href={`/api/admin/applications/${a.id}/resume`} className="underline" target="_blank" rel="noopener noreferrer">Download</a></td><td className="p-2"><div className="flex gap-2 flex-wrap">
             <select className="border rounded p-1" value={a.status} onChange={async (e) => {
               const nextStatus = e.target.value as AppRow["status"];
               setApplications((prev) => prev.map((row) => row.id === a.id ? { ...row, status: nextStatus } : row));
@@ -250,7 +243,7 @@ export default function AdminDashboard() {
         <h3 className="text-xl font-semibold">Candidate Profile</h3>
         <p>{selected.user.name} • {selected.user.email} • {selected.phone}</p>
         <p><a className="underline mr-2" href={selected.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a><a className="underline mr-2" href={selected.github} target="_blank" rel="noopener noreferrer">GitHub</a>{selected.portfolio && <a className="underline" href={selected.portfolio} target="_blank" rel="noopener noreferrer">Portfolio</a>}</p>
-        <p><a className="underline" href={resolveResumeUrl(selected.resume)} target="_blank" rel="noopener noreferrer">Resume Preview/Download</a></p>
+        <p><a className="underline" href={`/api/admin/applications/${selected.id}/resume`} target="_blank" rel="noopener noreferrer">Resume Preview/Download</a></p>
         <div className="grid sm:grid-cols-2 gap-2 text-sm">
           <p><span className="font-medium">Current Location:</span> {selected.location || "—"}</p>
           <p><span className="font-medium">Years of Experience:</span> {selected.yearsExperience || "—"}</p>
