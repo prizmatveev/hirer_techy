@@ -19,13 +19,20 @@ export function Navbar() {
     const sectionIds = links.map(([, href]) => href.slice(1));
 
     const updateActiveFromViewport = () => {
-      const y = window.scrollY + 160;
+      const viewportMid = window.scrollY + window.innerHeight * 0.35;
+
       let current: (typeof links)[number][1] = "#jobs";
+      let minDistance = Number.POSITIVE_INFINITY;
 
       for (const id of sectionIds) {
         const section = document.getElementById(id);
         if (!section) continue;
-        if (section.offsetTop <= y) {
+
+        const sectionMid = section.offsetTop + section.offsetHeight / 2;
+        const distance = Math.abs(sectionMid - viewportMid);
+
+        if (distance < minDistance) {
+          minDistance = distance;
           current = `#${id}` as (typeof links)[number][1];
         }
       }

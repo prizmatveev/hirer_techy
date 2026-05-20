@@ -89,7 +89,6 @@ export default function Home() {
               <p className="text-sm text-zinc-600">{job.category} • {job.location} • {job.employmentType}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button className="border rounded-lg px-3 py-2 text-sm hover:bg-zinc-50 transition" onClick={() => void loadJobs()}>Refresh Jobs</button>
               <Link href={`/jobs/${job.id}`} className="btn-primary text-sm">Apply Now</Link>
             </div>
           </motion.article>
