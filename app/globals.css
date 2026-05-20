@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #edf6f7;
+  --panel: #f5fbfb;
+  --card: #ffffff;
+  --ink: #111318;
+  --muted: #5e6772;
+  --accent: #7bd0d3;
+  --line: #dbe6e8;
+}
+
+body {
+  @apply antialiased;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.container {
+  @apply max-w-6xl mx-auto px-4;
+}
+
+.shell {
+  @apply rounded-2xl border;
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.card {
+  @apply rounded-xl border shadow-sm;
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.btn-primary {
+  @apply rounded-xl px-6 py-3 font-medium transition;
+  background: var(--accent);
+  color: #0f2526;
+}
+
+.btn-primary:hover { filter: brightness(0.96); }
