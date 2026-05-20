@@ -63,7 +63,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 py-3">
       <nav className="container shell h-16 px-6 flex items-center justify-between">
         <Link href="/" className="font-semibold text-lg tracking-tight flex items-center gap-3">
-          <Image src="/navbar-logo-icon.svg" alt="Navbar logo icon" width={28} height={28} />
+          <Image src="/navbar-logo-icon.svg" alt="Navbar logo icon" width={40} height={40} className="h-10 w-10" />
           <Image
             src="/navbar-title-placeholder.svg"
             alt="Navbar stylized title"
