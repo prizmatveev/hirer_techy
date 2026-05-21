@@ -19,10 +19,18 @@ const hostMatches = (candidate: string, configured: string) => {
 
 const shouldForceAdminOnly = () => normalize(process.env.ADMIN_ONLY_MODE ?? 'true') !== 'false';
 
+const parseAdminHost = () => {
+  const configured = normalize(process.env.ADMIN_APP_HOST ?? '');
+  if (!configured || configured === '0' || configured === 'false' || configured === 'null' || configured === 'undefined' || configured === '*' || configured === 'any' || configured === 'all') {
+    return '';
+  }
+  return configured;
+};
+
 const isAdminHost = (req: NextRequest) => {
   if (!shouldForceAdminOnly()) return false;
 
-  const configured = normalize(process.env.ADMIN_APP_HOST ?? '');
+  const configured = parseAdminHost();
   if (!configured) return true;
 
   const forwardedHost = parseHost(req.headers.get('x-forwarded-host'));

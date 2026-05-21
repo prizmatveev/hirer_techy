@@ -27,4 +27,6 @@ Minimal multi-page ATS-style hiring platform built with Next.js App Router, Type
 ## Admin-only mode
 - `ADMIN_ONLY_MODE=true` (default): only `/admin/*` and `/api/admin/*` are served; all other routes redirect to `/admin/login`.
 - `ADMIN_ONLY_MODE=false`: disables admin-only locking.
-- `ADMIN_APP_HOST` (optional): when set, host-based admin-only locking is applied only to that host.
+- `ADMIN_APP_HOST` (optional): set this to your exact admin domain (example: `admin.yourdomain.com` or `your-project.vercel.app`) to scope locking to one host.
+- If your platform requires a value (like Vercel UI), use `*` (or `any` / `all`) to mean “no host restriction” (apply admin-only mode on all hosts).
+- `0`, `false`, `null`, and `undefined` are also treated as “unset” for backward compatibility.
