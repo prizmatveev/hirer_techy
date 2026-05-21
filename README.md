@@ -3,10 +3,12 @@
 Minimal multi-page ATS-style hiring platform built with Next.js App Router, TypeScript, Tailwind CSS, Framer Motion, Zustand, Prisma/PostgreSQL, and placeholder auth/upload integrations.
 
 ## Pages
-- `/` homepage with category filtering, jobs list, and ATS sections
-- `/jobs/[id]` job details with sticky apply sidebar
-- `/apply/[jobId]` application form inspired by provided layouts
-- `/admin/login`, `/admin/dashboard` recruiter panel
+- `/admin` admin portal landing page
+- `/admin/register` admin account creation
+- `/admin/login` recruiter/admin sign-in
+- `/admin/dashboard` jobs + applications management panel
+
+> This deployment is configured as **admin-only**: non-admin pages are redirected to `/admin/login` on the admin host.
 
 ## Setup
 1. `npm install`
