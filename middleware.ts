@@ -32,6 +32,15 @@ const isAdminHost = (req: NextRequest) => {
   );
 };
 
+const isPublicAsset = (pathname: string) => {
+  if (pathname.startsWith('/_next/')) return true;
+  if (pathname === '/favicon.ico') return true;
+  if (pathname.startsWith('/images/')) return true;
+  if (pathname.startsWith('/fonts/')) return true;
+  if (pathname.startsWith('/api/admin/')) return true;
+  return false;
+};
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -41,6 +50,11 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/', req.url));
     }
     return NextResponse.next();
+  }
+
+  const isAdminPage = pathname === '/admin' || pathname.startsWith('/admin/');
+  if (!isAdminPage && !isPublicAsset(pathname)) {
+    return NextResponse.redirect(new URL('/admin/login', req.url));
   }
 
   if (pathname.startsWith('/admin/dashboard')) {
@@ -53,4 +67,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/admin/:path*'] };
+export const config = { matcher: ['/((?!.*\\..*).*)', '/api/:path*'] };
