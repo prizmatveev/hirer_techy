@@ -17,7 +17,11 @@ const hostMatches = (candidate: string, configured: string) => {
   return candidateHostname === configuredHostname;
 };
 
+const shouldForceAdminOnly = () => normalize(process.env.ADMIN_ONLY_MODE ?? 'true') !== 'false';
+
 const isAdminHost = (req: NextRequest) => {
+  if (!shouldForceAdminOnly()) return false;
+
   const configured = normalize(process.env.ADMIN_APP_HOST ?? '');
   if (!configured) return true;
 
@@ -32,12 +36,13 @@ const isAdminHost = (req: NextRequest) => {
   );
 };
 
-const isPublicAsset = (pathname: string) => {
+const isAllowedInAdminOnlyMode = (pathname: string) => {
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return true;
+  if (pathname.startsWith('/api/admin/')) return true;
   if (pathname.startsWith('/_next/')) return true;
   if (pathname === '/favicon.ico') return true;
   if (pathname.startsWith('/images/')) return true;
   if (pathname.startsWith('/fonts/')) return true;
-  if (pathname.startsWith('/api/admin/')) return true;
   return false;
 };
 
@@ -45,15 +50,10 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (!isAdminHost(req)) {
-    const blockedAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
-    if (blockedAdminPath) {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
     return NextResponse.next();
   }
 
-  const isAdminPage = pathname === '/admin' || pathname.startsWith('/admin/');
-  if (!isAdminPage && !isPublicAsset(pathname)) {
+  if (!isAllowedInAdminOnlyMode(pathname)) {
     return NextResponse.redirect(new URL('/admin/login', req.url));
   }
 

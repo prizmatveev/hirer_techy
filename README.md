@@ -22,3 +22,9 @@ Minimal multi-page ATS-style hiring platform built with Next.js App Router, Type
 - Responsive design + subtle hover animations
 - Resume upload field + validation placeholders
 - Schema models for `User`, `Job`, `Application`, `AdminNotes`
+
+
+## Admin-only mode
+- `ADMIN_ONLY_MODE=true` (default): only `/admin/*` and `/api/admin/*` are served; all other routes redirect to `/admin/login`.
+- `ADMIN_ONLY_MODE=false`: disables admin-only locking.
+- `ADMIN_APP_HOST` (optional): when set, host-based admin-only locking is applied only to that host.
