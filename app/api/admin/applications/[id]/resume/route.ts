@@ -15,6 +15,8 @@ type ResumeAssetRow = {
   contentType: string | null;
 };
 
+const toBodyBytes = (value: Buffer | Uint8Array) => Uint8Array.from(value);
+
 const toPublicResumePath = (resume: string) => {
   const normalized = resume.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/^public\//, '');
   if (normalized.startsWith('/')) return normalized;
@@ -127,7 +129,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!application?.resume) {
     const resumeAsset = await findResumeAsset(params.id);
     if (resumeAsset?.data) {
-      const bytes = Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data);
+      const bytes = toBodyBytes(Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data));
       console.info('[resume] mode=resume_asset_only');
       return new NextResponse(bytes, {
         headers: {
@@ -145,7 +147,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const inline = fromDataUrl(resume);
   if (inline) {
     console.info('[resume] mode=data_url');
-    return new NextResponse(inline.bytes, {
+    return new NextResponse(toBodyBytes(inline.bytes), {
       headers: {
         'Content-Type': inline.mime,
         'Content-Disposition': 'inline; filename="resume"',
@@ -157,7 +159,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const rawBase64 = fromRawBase64(resume);
   if (rawBase64) {
     console.info('[resume] mode=raw_base64');
-    return new NextResponse(rawBase64.bytes, {
+    return new NextResponse(toBodyBytes(rawBase64.bytes), {
       headers: {
         'Content-Type': rawBase64.mime,
         'Content-Disposition': 'inline; filename="resume"',
@@ -173,7 +175,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const resumeAsset = await findResumeAsset(params.id);
   if (resumeAsset?.data) {
-    const bytes = Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data);
+    const bytes = toBodyBytes(Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data));
     console.info('[resume] mode=resume_asset');
     return new NextResponse(bytes, {
       headers: {
