@@ -50,6 +50,21 @@ const fromDataUrl = (value: string) => {
   return { mime, bytes };
 };
 
+const fromRawBase64 = (value: string) => {
+  const sanitized = value.trim();
+  if (!sanitized || sanitized.includes('/') || sanitized.includes('\\') || sanitized.includes(' ')) return null;
+  if (!/^[A-Za-z0-9+/=]+$/.test(sanitized) || sanitized.length < 32) return null;
+
+  try {
+    const bytes = Buffer.from(sanitized, 'base64');
+    if (!bytes.length) return null;
+    const pdfSignature = bytes.subarray(0, 4).toString('utf8') === '%PDF';
+    return { mime: pdfSignature ? 'application/pdf' : 'application/octet-stream', bytes };
+  } catch {
+    return null;
+  }
+};
+
 const mimeFromPath = (path: string) => {
   const ext = path.toLowerCase().split('.').pop() ?? '';
   switch (ext) {
@@ -84,6 +99,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return new NextResponse(inline.bytes, {
       headers: {
         'Content-Type': inline.mime,
+        'Content-Disposition': 'inline; filename="resume"',
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
+
+  const rawBase64 = fromRawBase64(resume);
+  if (rawBase64) {
+    return new NextResponse(rawBase64.bytes, {
+      headers: {
+        'Content-Type': rawBase64.mime,
         'Content-Disposition': 'inline; filename="resume"',
         'Cache-Control': 'private, no-store',
       },
