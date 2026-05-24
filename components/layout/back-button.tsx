@@ -15,7 +15,7 @@ export function BackButton() {
       router.back();
       return;
     }
-    router.push("/");
+    router.push("/admin/login");
   };
 
   return (
