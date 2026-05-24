@@ -44,3 +44,5 @@ This repository currently has no `prisma/migrations` folder, so `prisma migrate 
 Use schema sync in deploy builds:
 - Build command: `prisma db push && prisma generate && next build`
 This creates/updates the Prisma tables (`User`, `Job`, `Application`, `AdminNotes`) in Neon before the app starts serving API routes.
+
+Hello, thanks for using this app
