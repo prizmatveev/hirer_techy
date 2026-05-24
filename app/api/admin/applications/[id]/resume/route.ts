@@ -82,7 +82,9 @@ const isExplicitLocalPath = (value: string) => {
     || /^public\//i.test(v)
     || /^uploads\//i.test(v)
     || /^file:\/\//i.test(v)
-    || /^[a-zA-Z]:\\/.test(v);
+    || /^[a-zA-Z]:\\/.test(v)
+    || /\.(pdf|doc|docx|txt|rtf|odt|png|jpe?g|webp|gif|bmp|tiff?|svg)$/i.test(v)
+    || (!v.includes(' ') && !v.includes(':') && /[\/_-]/.test(v));
 };
 
 const findResumeAsset = async (applicationId: string): Promise<ResumeAssetRow | null> => {
