@@ -1,224 +1,133 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { access, readFile } from 'fs/promises';
-import { constants } from 'fs';
-import { join } from 'path';
 import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
-type ResumeAssetRow = {
-  data: Buffer | Uint8Array;
-  fileName: string | null;
-  contentType: string | null;
+type ApplicationResumeRecord = {
+  id: string;
+  resume: string | null;
+  resumeFileUrl: string | null;
+  resumeFileKey: string | null;
 };
 
-const toBodyBytes = (value: Buffer | Uint8Array) => Uint8Array.from(value);
+// Hirer + Recruit share a single UploadThing project/storage bucket. We only use
+// UploadThing for resume binary storage and keep all other application data in PostgreSQL.
+const UPLOADTHING_HOST_PATTERNS = [
+  /uploadthing\.com$/i,
+  /ufs\.sh$/i,
+  /utfs\.io$/i,
+];
 
-const toPublicResumePath = (resume: string) => {
-  const normalized = resume.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/^public\//, '');
-  if (normalized.startsWith('/')) return normalized;
-  if (normalized.startsWith('uploads/')) return `/${normalized}`;
-  return `/uploads/resumes/${normalized.split('/').pop() ?? normalized}`;
-};
-
-const toDecodedPath = (resume: string) => {
+const isValidHttpUrl = (value: string) => {
   try {
-    const parsed = new URL(resume);
-    return decodeURIComponent(parsed.pathname);
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
-    const withoutQuery = resume.split('?')[0]?.split('#')[0] ?? resume;
-    return decodeURIComponent(withoutQuery);
+    return false;
   }
 };
 
-const toCandidateDiskPaths = (resume: string) => {
-  const decodedPath = toDecodedPath(resume).replace(/^\/+/, '');
-  const fileName = decodedPath.split('/').pop() ?? '';
+const isLikelyUploadThingKey = (value: string) => /^[A-Za-z0-9/_\-.]{8,300}$/.test(value);
 
-  const candidates = [
-    decodedPath,
-    toPublicResumePath(decodedPath).replace(/^\//, ''),
-    fileName ? `uploads/resumes/${fileName}` : '',
-    fileName ? `uploads/${fileName}` : '',
-  ]
-    .filter(Boolean)
-    .map((relative) => join(process.cwd(), 'public', relative));
-
-  return [...new Set(candidates)];
-};
-
-
-const fromDataUrl = (value: string) => {
-  const match = value.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) return null;
-  const mime = match[1] || 'application/octet-stream';
-  const bytes = Buffer.from(match[2], 'base64');
-  return { mime, bytes };
-};
-
-const fromRawBase64 = (value: string) => {
-  const sanitized = value.trim();
-  if (!sanitized || sanitized.includes('\\') || /\s/.test(sanitized)) return null;
-  if (!/^[A-Za-z0-9+/=]+$/.test(sanitized) || sanitized.length < 32) return null;
-
+const isLikelyUploadThingUrl = (value: string) => {
   try {
-    const bytes = Buffer.from(sanitized, 'base64');
-    if (!bytes.length) return null;
-    const pdfSignature = bytes.subarray(0, 4).toString('utf8') === '%PDF';
-    return { mime: pdfSignature ? 'application/pdf' : 'application/octet-stream', bytes };
+    const parsed = new URL(value);
+    return UPLOADTHING_HOST_PATTERNS.some((pattern) => pattern.test(parsed.hostname));
   } catch {
-    return null;
+    return false;
   }
 };
 
-const isUrlValue = (value: string) => /^https?:\/\//i.test(value.trim());
-
-const isExplicitLocalPath = (value: string) => {
-  const v = value.trim();
-  return /^\.?\.?\//.test(v)
-    || /^public\//i.test(v)
-    || /^uploads\//i.test(v)
-    || /^file:\/\//i.test(v)
-    || /^[a-zA-Z]:\\/.test(v)
-    || /\.(pdf|doc|docx|txt|rtf|odt|png|jpe?g|webp|gif|bmp|tiff?|svg)$/i.test(v)
-    || (!v.includes(' ') && !v.includes(':') && /[\/_-]/.test(v));
+const getFilename = (key: string | null, fallback = 'resume.pdf') => {
+  if (!key) return fallback;
+  const leaf = key.split('/').pop()?.trim();
+  return leaf || fallback;
 };
 
-const findResumeAsset = async (applicationId: string): Promise<ResumeAssetRow | null> => {
+const getApplicationResumeRecord = async (applicationId: string): Promise<ApplicationResumeRecord | null> => {
   try {
-    const rows = await prisma.$queryRawUnsafe<ResumeAssetRow[]>(
-      'SELECT "data", "fileName", "contentType" FROM "ResumeAsset" WHERE "applicationId" = $1 LIMIT 1',
+    const rows = await prisma.$queryRawUnsafe<ApplicationResumeRecord[]>(
+      'SELECT "id", "resume", "resumeFileUrl", "resumeFileKey" FROM "Application" WHERE "id" = $1 LIMIT 1',
       applicationId,
     );
     return rows[0] ?? null;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError || error instanceof Prisma.PrismaClientUnknownRequestError) {
-      console.info('[resume] mode=resume_asset_lookup_unavailable');
-      return null;
+      console.warn(`[resume] appId=${applicationId} storage=postgres_columns_unavailable details=resumeFileUrl/resumeFileKey columns unavailable`);
+      const legacy = await prisma.application.findUnique({ where: { id: applicationId }, select: { id: true, resume: true } });
+      if (!legacy) return null;
+      return { id: legacy.id, resume: legacy.resume, resumeFileUrl: null, resumeFileKey: null };
     }
-    console.error('[resume] mode=resume_asset_lookup_failed', error);
-    return null;
+
+    throw error;
   }
 };
 
-const mimeFromPath = (path: string) => {
-  const ext = path.toLowerCase().split('.').pop() ?? '';
-  switch (ext) {
-    case 'pdf': return 'application/pdf';
-    case 'doc': return 'application/msword';
-    case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    case 'txt': return 'text/plain; charset=utf-8';
-    case 'rtf': return 'application/rtf';
-    case 'odt': return 'application/vnd.oasis.opendocument.text';
-    case 'png': return 'image/png';
-    case 'jpg':
-    case 'jpeg': return 'image/jpeg';
-    case 'webp': return 'image/webp';
-    case 'gif': return 'image/gif';
-    case 'bmp': return 'image/bmp';
-    case 'tif':
-    case 'tiff': return 'image/tiff';
-    case 'svg': return 'image/svg+xml';
-    default: return 'application/octet-stream';
-  }
-};
+const fetchUploadThingFile = async (url: string) => fetch(url, { cache: 'no-store' });
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const application = await prisma.application.findUnique({ where: { id: params.id }, select: { resume: true } });
-  if (!application?.resume) {
-    const resumeAsset = await findResumeAsset(params.id);
-    if (resumeAsset?.data) {
-      const bytes = toBodyBytes(Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data));
-      console.info('[resume] mode=resume_asset_only');
-      return new NextResponse(bytes, {
-        headers: {
-          'Content-Type': resumeAsset.contentType || 'application/pdf',
-          'Content-Disposition': `inline; filename="${resumeAsset.fileName || 'resume.pdf'}"`,
-          'Cache-Control': 'private, no-store',
-        },
-      });
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const requestUrl = new URL(req.url);
+  const asDownload = requestUrl.searchParams.get('download') === '1';
+  const appId = params.id;
+
+  const application = await getApplicationResumeRecord(appId);
+  if (!application) {
+    console.info(`[resume] appId=${appId} storage=not_found result=application_missing`);
+    return NextResponse.json({ error: 'Application not found.' }, { status: 404 });
+  }
+
+  const resumeFileUrl = application.resumeFileUrl?.trim() || '';
+  const resumeFileKey = application.resumeFileKey?.trim() || '';
+
+  if (!resumeFileUrl || !resumeFileKey) {
+    const legacyResume = application.resume?.trim() || '';
+    if (legacyResume && isValidHttpUrl(legacyResume)) {
+      console.warn(`[resume] appId=${appId} storage=legacy_url_fallback result=redirecting_legacy_url`);
+      return NextResponse.redirect(legacyResume);
     }
-    console.info('[resume] mode=not_found');
-    return NextResponse.json({ error: 'Resume not found for this application.' }, { status: 404 });
+
+    console.warn(`[resume] appId=${appId} storage=uploadthing_missing_fields result=missing_url_or_key`);
+    return NextResponse.json(
+      { error: 'Resume is not available in UploadThing storage for this application.' },
+      { status: 404 },
+    );
   }
 
-  const resume = application.resume;
-  const inline = fromDataUrl(resume);
-  if (inline) {
-    console.info('[resume] mode=data_url');
-    return new NextResponse(toBodyBytes(inline.bytes), {
-      headers: {
-        'Content-Type': inline.mime,
-        'Content-Disposition': 'inline; filename="resume"',
-        'Cache-Control': 'private, no-store',
-      },
-    });
+  if (!isValidHttpUrl(resumeFileUrl) || !isLikelyUploadThingUrl(resumeFileUrl)) {
+    console.warn(`[resume] appId=${appId} storage=uploadthing_invalid_url result=validation_failed url=${resumeFileUrl}`);
+    return NextResponse.json({ error: 'Resume UploadThing URL is invalid.' }, { status: 422 });
   }
 
-  const rawBase64 = fromRawBase64(resume);
-  if (rawBase64) {
-    console.info('[resume] mode=raw_base64');
-    return new NextResponse(toBodyBytes(rawBase64.bytes), {
-      headers: {
-        'Content-Type': rawBase64.mime,
-        'Content-Disposition': 'inline; filename="resume"',
-        'Cache-Control': 'private, no-store',
-      },
-    });
+  if (!isLikelyUploadThingKey(resumeFileKey)) {
+    console.warn(`[resume] appId=${appId} storage=uploadthing_invalid_key result=validation_failed key=${resumeFileKey}`);
+    return NextResponse.json({ error: 'Resume UploadThing file key is invalid.' }, { status: 422 });
   }
 
-  if (isUrlValue(resume)) {
-    console.info('[resume] mode=external_url');
-    return NextResponse.redirect(resume);
+  const upstream = await fetchUploadThingFile(resumeFileUrl);
+  if (!upstream.ok) {
+    console.error(`[resume] appId=${appId} storage=uploadthing status=${upstream.status} result=fetch_failed`);
+    return NextResponse.json(
+      { error: upstream.status === 404 ? 'Resume file has been deleted from UploadThing.' : 'Failed to fetch resume file from UploadThing.' },
+      { status: upstream.status === 404 ? 404 : 502 },
+    );
   }
 
-  const resumeAsset = await findResumeAsset(params.id);
-  if (resumeAsset?.data) {
-    const bytes = toBodyBytes(Buffer.isBuffer(resumeAsset.data) ? resumeAsset.data : Buffer.from(resumeAsset.data));
-    console.info('[resume] mode=resume_asset');
-    return new NextResponse(bytes, {
-      headers: {
-        'Content-Type': resumeAsset.contentType || 'application/pdf',
-        'Content-Disposition': `inline; filename="${resumeAsset.fileName || 'resume.pdf'}"`,
-        'Cache-Control': 'private, no-store',
-      },
-    });
-  }
+  const upstreamContentType = upstream.headers.get('content-type') || 'application/octet-stream';
+  const filename = getFilename(resumeFileKey, upstreamContentType.includes('pdf') ? 'resume.pdf' : 'resume');
+  const disposition = asDownload ? `attachment; filename="${filename}"` : `inline; filename="${filename}"`;
 
-  if (!isExplicitLocalPath(resume)) {
-    console.info('[resume] mode=unrecognized_non_path');
-    return NextResponse.json({ error: 'Resume format is not a supported path or inline document.' }, { status: 404 });
-  }
+  console.info(`[resume] appId=${appId} storage=uploadthing result=fetch_success mode=${asDownload ? 'download' : 'preview'} contentType=${upstreamContentType}`);
 
-  const candidateDiskPaths = toCandidateDiskPaths(resume);
-  let resolvedDiskPath: string | null = null;
-
-  for (const candidate of candidateDiskPaths) {
-    try {
-      await access(candidate, constants.R_OK);
-      resolvedDiskPath = candidate;
-      break;
-    } catch {
-      // try next candidate
-    }
-  }
-
-  if (!resolvedDiskPath) {
-    console.info('[resume] mode=filesystem_not_found');
-    return NextResponse.json({ error: 'Resume file is missing on server storage.' }, { status: 404 });
-  }
-
-  const file = await readFile(resolvedDiskPath);
-  const publicPath = toDecodedPath(resume);
-  console.info('[resume] mode=filesystem_path');
-  return new NextResponse(file, {
+  return new NextResponse(upstream.body, {
+    status: 200,
     headers: {
-      'Content-Type': mimeFromPath(publicPath),
-      'Content-Disposition': `inline; filename="${publicPath.split('/').pop() || 'resume'}"`,
+      'Content-Type': upstreamContentType,
+      'Content-Disposition': disposition,
       'Cache-Control': 'private, no-store',
+      'X-Resume-Storage': 'uploadthing',
     },
   });
 }
