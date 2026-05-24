@@ -15,6 +15,32 @@ const toPublicResumePath = (resume: string) => {
   return `/uploads/resumes/${normalized.split('/').pop() ?? normalized}`;
 };
 
+const toDecodedPath = (resume: string) => {
+  try {
+    const parsed = new URL(resume);
+    return decodeURIComponent(parsed.pathname);
+  } catch {
+    const withoutQuery = resume.split('?')[0]?.split('#')[0] ?? resume;
+    return decodeURIComponent(withoutQuery);
+  }
+};
+
+const toCandidateDiskPaths = (resume: string) => {
+  const decodedPath = toDecodedPath(resume).replace(/^\/+/, '');
+  const fileName = decodedPath.split('/').pop() ?? '';
+
+  const candidates = [
+    decodedPath,
+    toPublicResumePath(decodedPath).replace(/^\//, ''),
+    fileName ? `uploads/resumes/${fileName}` : '',
+    fileName ? `uploads/${fileName}` : '',
+  ]
+    .filter(Boolean)
+    .map((relative) => join(process.cwd(), 'public', relative));
+
+  return [...new Set(candidates)];
+};
+
 
 const fromDataUrl = (value: string) => {
   const match = value.match(/^data:([^;]+);base64,(.+)$/);
@@ -22,6 +48,21 @@ const fromDataUrl = (value: string) => {
   const mime = match[1] || 'application/octet-stream';
   const bytes = Buffer.from(match[2], 'base64');
   return { mime, bytes };
+};
+
+const fromRawBase64 = (value: string) => {
+  const sanitized = value.trim();
+  if (!sanitized || sanitized.includes('/') || sanitized.includes('\\') || sanitized.includes(' ')) return null;
+  if (!/^[A-Za-z0-9+/=]+$/.test(sanitized) || sanitized.length < 32) return null;
+
+  try {
+    const bytes = Buffer.from(sanitized, 'base64');
+    if (!bytes.length) return null;
+    const pdfSignature = bytes.subarray(0, 4).toString('utf8') === '%PDF';
+    return { mime: pdfSignature ? 'application/pdf' : 'application/octet-stream', bytes };
+  } catch {
+    return null;
+  }
 };
 
 const mimeFromPath = (path: string) => {
@@ -64,20 +105,40 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     });
   }
 
+  const rawBase64 = fromRawBase64(resume);
+  if (rawBase64) {
+    return new NextResponse(rawBase64.bytes, {
+      headers: {
+        'Content-Type': rawBase64.mime,
+        'Content-Disposition': 'inline; filename="resume"',
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
+
   if (resume.startsWith('http://') || resume.startsWith('https://')) {
     return NextResponse.redirect(resume);
   }
 
-  const publicPath = toPublicResumePath(resume);
-  const diskPath = join(process.cwd(), 'public', publicPath.replace(/^\//, ''));
+  const candidateDiskPaths = toCandidateDiskPaths(resume);
+  let resolvedDiskPath: string | null = null;
 
-  try {
-    await access(diskPath, constants.R_OK);
-  } catch {
+  for (const candidate of candidateDiskPaths) {
+    try {
+      await access(candidate, constants.R_OK);
+      resolvedDiskPath = candidate;
+      break;
+    } catch {
+      // try next candidate
+    }
+  }
+
+  if (!resolvedDiskPath) {
     return NextResponse.json({ error: 'Resume file is missing on server storage.' }, { status: 404 });
   }
 
-  const file = await readFile(diskPath);
+  const file = await readFile(resolvedDiskPath);
+  const publicPath = toDecodedPath(resume);
   return new NextResponse(file, {
     headers: {
       'Content-Type': mimeFromPath(publicPath),
