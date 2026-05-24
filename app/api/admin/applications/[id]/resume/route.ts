@@ -15,6 +15,15 @@ const toPublicResumePath = (resume: string) => {
   return `/uploads/resumes/${normalized.split('/').pop() ?? normalized}`;
 };
 
+
+const fromDataUrl = (value: string) => {
+  const match = value.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  const mime = match[1] || 'application/octet-stream';
+  const bytes = Buffer.from(match[2], 'base64');
+  return { mime, bytes };
+};
+
 const mimeFromPath = (path: string) => {
   const ext = path.toLowerCase().split('.').pop() ?? '';
   switch (ext) {
@@ -44,6 +53,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   const resume = application.resume;
+  const inline = fromDataUrl(resume);
+  if (inline) {
+    return new NextResponse(inline.bytes, {
+      headers: {
+        'Content-Type': inline.mime,
+        'Content-Disposition': 'inline; filename="resume"',
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
+
   if (resume.startsWith('http://') || resume.startsWith('https://')) {
     return NextResponse.redirect(resume);
   }
