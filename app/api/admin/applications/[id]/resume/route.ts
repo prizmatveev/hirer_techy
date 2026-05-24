@@ -15,6 +15,32 @@ const toPublicResumePath = (resume: string) => {
   return `/uploads/resumes/${normalized.split('/').pop() ?? normalized}`;
 };
 
+const toDecodedPath = (resume: string) => {
+  try {
+    const parsed = new URL(resume);
+    return decodeURIComponent(parsed.pathname);
+  } catch {
+    const withoutQuery = resume.split('?')[0]?.split('#')[0] ?? resume;
+    return decodeURIComponent(withoutQuery);
+  }
+};
+
+const toCandidateDiskPaths = (resume: string) => {
+  const decodedPath = toDecodedPath(resume).replace(/^\/+/, '');
+  const fileName = decodedPath.split('/').pop() ?? '';
+
+  const candidates = [
+    decodedPath,
+    toPublicResumePath(decodedPath).replace(/^\//, ''),
+    fileName ? `uploads/resumes/${fileName}` : '',
+    fileName ? `uploads/${fileName}` : '',
+  ]
+    .filter(Boolean)
+    .map((relative) => join(process.cwd(), 'public', relative));
+
+  return [...new Set(candidates)];
+};
+
 
 const fromDataUrl = (value: string) => {
   const match = value.match(/^data:([^;]+);base64,(.+)$/);
@@ -68,16 +94,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.redirect(resume);
   }
 
-  const publicPath = toPublicResumePath(resume);
-  const diskPath = join(process.cwd(), 'public', publicPath.replace(/^\//, ''));
+  const candidateDiskPaths = toCandidateDiskPaths(resume);
+  let resolvedDiskPath: string | null = null;
 
-  try {
-    await access(diskPath, constants.R_OK);
-  } catch {
+  for (const candidate of candidateDiskPaths) {
+    try {
+      await access(candidate, constants.R_OK);
+      resolvedDiskPath = candidate;
+      break;
+    } catch {
+      // try next candidate
+    }
+  }
+
+  if (!resolvedDiskPath) {
     return NextResponse.json({ error: 'Resume file is missing on server storage.' }, { status: 404 });
   }
 
-  const file = await readFile(diskPath);
+  const file = await readFile(resolvedDiskPath);
+  const publicPath = toDecodedPath(resume);
   return new NextResponse(file, {
     headers: {
       'Content-Type': mimeFromPath(publicPath),
