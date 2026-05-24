@@ -30,3 +30,10 @@ Minimal multi-page ATS-style hiring platform built with Next.js App Router, Type
 - `ADMIN_APP_HOST` (optional): set this to your exact admin domain (example: `admin.yourdomain.com` or `your-project.vercel.app`) to scope locking to one host.
 - If your platform requires a value (like Vercel UI), use `*` (or `any` / `all`) to mean “no host restriction” (apply admin-only mode on all hosts).
 - `0`, `false`, `null`, and `undefined` are also treated as “unset” for backward compatibility.
+
+
+## Neon + Vercel production checklist
+- Prisma reads `DATABASE_URL` exactly (see `prisma/schema.prisma`).
+- In Vercel, set `DATABASE_URL` without wrapping quotes in the value field.
+- Build command should run migrations before Next build: `prisma migrate deploy && prisma generate && next build`.
+- Admin auth routes run on Node.js runtime and allow up to 30s max duration for cold-start/database latency.
