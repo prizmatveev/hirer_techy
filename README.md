@@ -37,3 +37,10 @@ Minimal multi-page ATS-style hiring platform built with Next.js App Router, Type
 - In Vercel, set `DATABASE_URL` without wrapping quotes in the value field.
 - Build command should run migrations before Next build: `prisma migrate deploy && prisma generate && next build`.
 - Admin auth routes run on Node.js runtime and allow up to 30s max duration for cold-start/database latency.
+
+
+### Fix for Neon P2021 (`public.User` does not exist)
+This repository currently has no `prisma/migrations` folder, so `prisma migrate deploy` has nothing to apply in a fresh production database.
+Use schema sync in deploy builds:
+- Build command: `prisma db push && prisma generate && next build`
+This creates/updates the Prisma tables (`User`, `Job`, `Application`, `AdminNotes`) in Neon before the app starts serving API routes.
