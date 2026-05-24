@@ -52,7 +52,7 @@ const fromDataUrl = (value: string) => {
 
 const fromRawBase64 = (value: string) => {
   const sanitized = value.trim();
-  if (!sanitized || sanitized.includes('/') || sanitized.includes('\\') || sanitized.includes(' ')) return null;
+  if (!sanitized || sanitized.includes('\\') || sanitized.includes(' ')) return null;
   if (!/^[A-Za-z0-9+/=]+$/.test(sanitized) || sanitized.length < 32) return null;
 
   try {
